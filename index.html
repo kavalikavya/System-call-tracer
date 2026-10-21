@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="System Call Tracer and Visualizer - Operating Systems mini project">
+  <title>System Call Tracer & Visualizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">SC</div>
+        <div><strong>SysTrace</strong><span>Operating Systems</span></div>
+      </div>
+      <nav>
+        <a class="nav-link active" href="#overview">Dashboard</a>
+        <a class="nav-link" href="#how-it-works">How It Works</a>
+        <a class="nav-link" href="#tracer">Trace Explorer</a>
+        <a class="nav-link" href="#syscalls">System Calls</a>
+        <a class="nav-link" href="#timeline">Execution Flow</a>
+        <a class="nav-link" href="#architecture">User vs Kernel Mode</a>
+        <a class="nav-link" href="#concepts">Concept Guide</a>
+        <a class="nav-link" href="#examples">Examples</a>
+        <a class="nav-link" href="#about">Project</a>
+      </nav>
+      <div class="sidebar-footer"><span class="status-dot"></span>Visualizer Ready</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">OPERATING SYSTEMS • UNIT 1</span>
+          <h1 id="pageTitle">System Call Tracer & Visualizer</h1>
+        </div>
+        <button class="outline-btn" id="loadSampleTop">Load Sample Trace</button>
+      </header>
+
+      <!-- DASHBOARD -->
+      <div class="page active" data-page="overview">
+        <section id="overview" class="hero">
+          <div class="hero-copy">
+            <span class="pill">OS Mini Project • Interactive Explanation</span>
+            <h2>Understand what happens when a program asks the operating system for a service.</h2>
+            <p>This visualizer traces system calls and explains the complete journey: application → system-call interface → kernel → requested service → return to the application.</p>
+            <div class="hero-actions">
+              <a class="primary-btn" href="#tracer">Start Tracing</a>
+              <a class="secondary-btn" href="#how-it-works">Understand First</a>
+            </div>
+          </div>
+          <div class="flow-card">
+            <div class="flow-title">ONE SYSTEM CALL — COMPLETE JOURNEY</div>
+            <div class="flow-step"><span>01</span><div><strong>User Program</strong><small>Application runs with limited privileges</small></div></div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step"><span>02</span><div><strong>System Call</strong><small>Program requests an OS service</small></div></div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step"><span>03</span><div><strong>Kernel Service</strong><small>Kernel validates and performs the operation</small></div></div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step success"><span>04</span><div><strong>Return to User Mode</strong><small>Result is returned to the application</small></div></div>
+          </div>
+        </section>
+
+        <section class="stats-grid">
+          <div class="stat-card"><span>Total System Calls</span><strong id="statCalls">0</strong><small>Calls in current trace</small></div>
+          <div class="stat-card"><span>Successful Calls</span><strong id="statSuccess">0</strong><small>Non-negative return values</small></div>
+          <div class="stat-card"><span>Failed Calls</span><strong id="statFailed">0</strong><small>Error return values</small></div>
+          <div class="stat-card"><span>Mode Transitions</span><strong id="statTransitions">0</strong><small>Entry + return transitions</small></div>
+        </section>
+
+        <section class="section compact-section">
+          <div class="section-heading"><div><span class="eyebrow">CURRENT TRACE</span><h2>Trace Snapshot</h2></div><span class="live-badge"><i></i> Ready</span></div>
+          <div class="snapshot-grid">
+            <div class="panel snapshot-card"><span>Program</span><strong id="snapshotProgram">sample_app</strong><small id="snapshotStatus">Sample trace loaded</small></div>
+            <div class="panel snapshot-card"><span>Model</span><strong>Linux-style</strong><small>Educational syscall trace model</small></div>
+            <div class="panel snapshot-card"><span>Last Call</span><strong id="snapshotLast">—</strong><small id="snapshotLastResult">Waiting for trace</small></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- HOW IT WORKS -->
+      <div class="page" data-page="how-it-works">
+        <section id="how-it-works" class="section">
+          <div class="section-heading"><div><span class="eyebrow">CONCEPT IN SIMPLE STEPS</span><h2>How a System Call Works</h2></div><span class="muted">Follow one request from start to finish</span></div>
+          <div class="concept-intro panel">
+            <div class="intro-icon">01</div>
+            <div><h3>What is a system call?</h3><p>A system call is the controlled interface used by a user program to request a service from the operating system kernel. Applications cannot directly perform privileged operations such as accessing hardware or protected files, so they ask the kernel to do it.</p></div>
+          </div>
+          <div class="step-grid">
+            <article class="step-card"><span>STEP 1</span><h3>Application requests a service</h3><p>A program calls a library/API function such as <code>read()</code>, <code>write()</code>, <code>open()</code> or <code>fork()</code>.</p><div class="mini-flow">Program → library/API</div></article>
+            <article class="step-card"><span>STEP 2</span><h3>System-call entry</h3><p>The system-call mechanism transfers control from user mode to kernel mode. The CPU uses a controlled entry point rather than allowing the application to enter the kernel arbitrarily.</p><div class="mini-flow">User Mode → Kernel Mode</div></article>
+            <article class="step-card"><span>STEP 3</span><h3>Kernel handles the request</h3><p>The kernel identifies the requested service, checks arguments and permissions, and performs the required operation using privileged OS resources.</p><div class="mini-flow">Dispatcher → Kernel Service</div></article>
+            <article class="step-card"><span>STEP 4</span><h3>Result is returned</h3><p>The kernel produces a return value or error. Control is transferred back to the application, which continues execution in user mode.</p><div class="mini-flow">Kernel → User Mode</div></article>
+          </div>
+
+          <div class="panel explanation-panel">
+            <div><span class="eyebrow">WHY TRACING IS USEFUL</span><h3>What this project visualizes</h3></div>
+            <div class="explanation-list">
+              <div><b>1.</b><span><strong>Which system call occurred?</strong><br>For example: <code>openat</code>, <code>read</code>, <code>write</code>, <code>close</code>.</span></div>
+              <div><b>2.</b><span><strong>What arguments were passed?</strong><br>The trace shows the information sent to the kernel.</span></div>
+              <div><b>3.</b><span><strong>What did the kernel return?</strong><br>A non-negative value normally represents success; a negative/error result represents failure in this educational model.</span></div>
+              <div><b>4.</b><span><strong>Where did execution move?</strong><br>The timeline makes the user-mode and kernel-mode transitions visible.</span></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- TRACER -->
+      <div class="page" data-page="tracer">
+        <section id="tracer" class="section">
+          <div class="section-heading"><div><span class="eyebrow">MAIN MODULE</span><h2>System Call Trace Explorer</h2></div><span class="live-badge"><i></i> Interactive</span></div>
+          <div class="tracer-grid">
+            <div class="panel control-panel">
+              <div class="panel-head"><div><h3>Trace a Program</h3><p>Select a built-in example or enter one of the supported sample commands.</p></div></div>
+              <label>Program / Command<input id="programInput" type="text" value="./sample_app" placeholder="e.g. ./hello"></label>
+              <div class="quick-actions">
+                <button class="secondary-btn sample-command" data-command="./hello">Hello World</button>
+                <button class="secondary-btn sample-command" data-command="cat file.txt">Read File</button>
+                <button class="secondary-btn sample-command" data-command="./server">Server</button>
+              </div>
+              <button class="primary-btn full" id="runTraceBtn">▶ Run Trace</button>
+              <button class="ghost-btn full" id="clearTraceBtn">Clear Trace</button>
+              <div class="trace-status" id="traceStatus"><span></span> Ready to trace</div>
+            </div>
+            <div class="panel terminal-panel">
+              <div class="terminal-head"><span><i class="terminal-dot"></i> trace output</span><span id="terminalCount">0 calls</span></div>
+              <div id="terminalOutput" class="terminal-output"><div class="terminal-line muted-line">$ waiting for a trace...</div></div>
+            </div>
+          </div>
+
+          <div class="panel trace-result-panel">
+            <div class="panel-head"><div><h3>What happens during the selected call?</h3><p>Click any row in the System Calls page or any output line to inspect it.</p></div><span class="muted">User → Kernel → User</span></div>
+            <div class="transition-strip">
+              <div class="transition-node user"><span>USER MODE</span><strong>Application</strong></div><div class="transition-arrow">→</div>
+              <div class="transition-node trap"><span>SYSTEM CALL</span><strong>Controlled Entry</strong></div><div class="transition-arrow">→</div>
+              <div class="transition-node kernel"><span>KERNEL MODE</span><strong>OS Service</strong></div><div class="transition-arrow">→</div>
+              <div class="transition-node user"><span>RETURN</span><strong>Application</strong></div>
+            </div>
+            <div id="callDetails" class="call-details neutral"><div class="result-icon">?</div><div><strong>Select a system call</strong><p>The syscall name, arguments, return value and execution explanation will appear here.</p></div></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- TABLE -->
+      <div class="page" data-page="syscalls">
+        <section id="syscalls" class="section">
+          <div class="section-heading"><div><span class="eyebrow">TRACE DATA</span><h2>System Calls in the Trace</h2></div><div class="toolbar"><input class="search-input" id="callSearch" placeholder="Search syscall..."/><select id="statusFilter"><option value="all">All results</option><option value="success">Successful</option><option value="failed">Failed</option></select></div></div>
+          <div class="panel table-panel">
+            <div class="table-wrap"><table><thead><tr><th>#</th><th>System Call</th><th>Arguments</th><th>Return</th><th>Mode</th><th>Duration</th><th>Status</th></tr></thead><tbody id="callBody"></tbody></table></div>
+          </div>
+          <div class="panel table-note"><strong>How to read this table:</strong> the call name identifies the requested OS service, arguments show what the program passed, return shows the result, and duration gives the simulated execution time used by this visualizer.</div>
+        </section>
+      </div>
+
+      <!-- TIMELINE -->
+      <div class="page" data-page="timeline">
+        <section id="timeline" class="section">
+          <div class="section-heading"><div><span class="eyebrow">EXECUTION FLOW</span><h2>System Call Execution Timeline</h2></div><span class="muted">Read the trace from top to bottom</span></div>
+          <div class="panel timeline-explain"><strong>What the timeline means</strong><p>Each item represents one system call observed during the program's execution. The order shows the sequence in which the program requested operating-system services.</p></div>
+          <div class="panel timeline-panel"><div id="timelineList" class="timeline-list"></div></div>
+        </section>
+      </div>
+
+      <!-- ARCHITECTURE -->
+      <div class="page" data-page="architecture">
+        <section id="architecture" class="section">
+          <div class="section-heading"><div><span class="eyebrow">PROTECTION MODEL</span><h2>User Mode vs Kernel Mode</h2></div><span class="muted">Why the operating system uses two privilege levels</span></div>
+          <div class="architecture-card panel">
+            <div class="mode-box user-mode"><span>USER MODE</span><h3>Application</h3><p>Normal programs run here with restricted privileges. They cannot directly access protected kernel resources.</p><code>printf() → write()</code></div>
+            <div class="arch-arrow"><b>↕</b><small>system-call entry / return</small></div>
+            <div class="mode-box kernel-mode"><span>KERNEL MODE</span><h3>Operating System</h3><p>The kernel runs with higher privilege, validates requests and performs protected operations.</p><code>sys_write() → file/device</code></div>
+          </div>
+          <div class="rule-grid">
+            <div class="rule-card"><b>User mode</b><span>Restricted execution</span><small>Applications and ordinary user processes</small></div>
+            <div class="rule-card"><b>Kernel mode</b><span>Privileged execution</span><small>Kernel and core operating-system services</small></div>
+            <div class="rule-card"><b>System call</b><span>Controlled boundary</span><small>Safe interface between the two modes</small></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- CONCEPTS -->
+      <div class="page" data-page="concepts">
+        <section id="concepts" class="section">
+          <div class="section-heading"><div><span class="eyebrow">CLEAR THEORY</span><h2>System Call Concept Guide</h2></div><span class="muted">Definitions you can explain in a viva</span></div>
+          <div class="definition-grid">
+            <article class="definition-card"><div class="term">System Call</div><p>A controlled mechanism through which a user program requests a service from the operating-system kernel.</p><div class="example-line">Example: <code>read()</code> asks the OS to read data.</div></article>
+            <article class="definition-card"><div class="term">User Mode</div><p>A restricted CPU privilege level where ordinary applications execute. Direct access to protected resources is not allowed.</p><div class="example-line">Think: application space</div></article>
+            <article class="definition-card"><div class="term">Kernel Mode</div><p>A privileged execution level used by the operating-system kernel to perform protected operations.</p><div class="example-line">Think: OS control space</div></article>
+            <article class="definition-card"><div class="term">System-Call Interface</div><p>The boundary/API through which programs request operating-system services such as files, processes, memory and communication.</p><div class="example-line">Program → OS request</div></article>
+            <article class="definition-card"><div class="term">Arguments</div><p>Input values supplied with a system call. They tell the kernel what resource or operation the program wants.</p><div class="example-line">Example: file descriptor + buffer + size</div></article>
+            <article class="definition-card"><div class="term">Return Value</div><p>The result sent back by the kernel. It can indicate success, a quantity, an identifier or an error condition.</p><div class="example-line">Example: read() may return bytes read</div></article>
+            <article class="definition-card"><div class="term">Trace</div><p>A chronological record of system calls made by a program, including call names, arguments and results.</p><div class="example-line">Trace = execution evidence</div></article>
+            <article class="definition-card"><div class="term">Trap / Syscall Entry</div><p>A controlled CPU transition that transfers execution to a kernel entry point so the requested service can be handled safely.</p><div class="example-line">User → Kernel boundary</div></article>
+          </div>
+
+          <div class="panel viva-panel">
+            <span class="eyebrow">30-SECOND EXPLANATION</span>
+            <h3>How to explain this project</h3>
+            <p>“Our project is a System Call Tracer and Visualizer. A system call is the interface through which a user program requests an operating-system service. Our tool records the calls made by a sample program and visualizes the transition from user mode to kernel mode and back. For every call, we show the syscall name, arguments, return value, status and execution order. This helps us understand how applications interact with the operating-system kernel.”</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- EXAMPLES -->
+      <div class="page" data-page="examples">
+        <section id="examples" class="section">
+          <div class="section-heading"><div><span class="eyebrow">WORKED EXAMPLES</span><h2>Understand System Calls Through Examples</h2></div><span class="muted">See why common programs need the kernel</span></div>
+          <div class="example-grid">
+            <article class="example-card"><span>EXAMPLE 01</span><h3>Printing “Hello World”</h3><p>When a program prints text, it eventually needs an OS service to send bytes to the output device or terminal.</p><div class="code-path">printf() → write() → kernel → terminal</div><button class="secondary-btn try-example" data-command="./hello">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 02</span><h3>Reading a file</h3><p>A program cannot directly read protected storage. It requests the kernel to open the file and read its contents.</p><div class="code-path">openat() → read() → close()</div><button class="secondary-btn try-example" data-command="cat file.txt">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 03</span><h3>Network server</h3><p>A server needs operating-system services to create a socket, bind it to an address, accept connections and exchange data.</p><div class="code-path">socket() → bind() → listen() → accept()</div><button class="secondary-btn try-example" data-command="./server">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 04</span><h3>Creating a child process</h3><p>A program can start a child process and wait for it to finish before continuing.</p><div class="code-path">clone() → wait4() → exit_group()</div><button class="secondary-btn try-example" data-command="./fork_demo">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 05</span><h3>Creating a file</h3><p>The program asks the kernel to create a file, write content, and release the file descriptor.</p><div class="code-path">openat() → write() → close()</div><button class="secondary-btn try-example" data-command="./create_file">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 06</span><h3>Deleting a file</h3><p>A file name can be removed through a filesystem system call.</p><div class="code-path">unlink() → write() → exit_group()</div><button class="secondary-btn try-example" data-command="./delete_file">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 07</span><h3>Listing a directory</h3><p>The program opens a directory and requests its entry information from the kernel.</p><div class="code-path">openat() → getdents64() → close()</div><button class="secondary-btn try-example" data-command="./directory_demo">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 08</span><h3>Memory allocation</h3><p>A process maps a memory region and later unmaps it when it is no longer needed.</p><div class="code-path">mmap() → use memory → munmap()</div><button class="secondary-btn try-example" data-command="./memory_demo">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 09</span><h3>Permission denied</h3><p>An attempt to open a protected file fails, showing how system calls report errors.</p><div class="code-path">openat() → error (-1) → write()</div><button class="secondary-btn try-example" data-command="./permission_demo">Trace this example</button></article>
+            <article class="example-card"><span>EXAMPLE 10</span><h3>Inter-process communication</h3><p>A pipe lets one process or execution path send bytes to another through read and write file descriptors.</p><div class="code-path">pipe2() → write() → read() → close()</div><button class="secondary-btn try-example" data-command="./pipe_demo">Trace this example</button></article>
+          </div>
+          <div class="panel example-note"><strong>Important:</strong> the examples in this interface are educational sample traces. They demonstrate the expected system-call flow and presentation of the project; they are not a claim that the browser itself is tracing the host operating system.</div>
+        </section>
+      </div>
+
+      <!-- ABOUT -->
+      <div class="page" data-page="about">
+        <section id="about" class="section">
+          <div class="section-heading"><div><span class="eyebrow">PROJECT</span><h2>System Call Tracer & Visualizer</h2></div><span class="muted">Operating Systems mini project</span></div>
+          <div class="about-grid">
+            <div class="panel about-main"><span class="pill">Unit 1 — OS Overview</span><h3>Project objective</h3><p>Develop a tool that traces system calls issued by a sample program and visualizes the user-mode / kernel-mode transitions.</p><h3>What this interface demonstrates</h3><ul><li>System-call identification</li><li>Arguments and return values</li><li>User-mode and kernel-mode boundary</li><li>Chronological execution flow</li><li>Success and failure interpretation</li><li>Clear OS concept explanations</li></ul></div>
+            <div class="panel about-side"><div class="about-item"><span>INPUT</span><strong>Sample program / command</strong></div><div class="about-item"><span>PROCESS</span><strong>Trace → parse → visualize</strong></div><div class="about-item"><span>OUTPUT</span><strong>Calls + transitions + explanations</strong></div><div class="about-item"><span>FOCUS</span><strong>Understanding OS system calls</strong></div></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="script.js"></script>
+</body>
+</html>
