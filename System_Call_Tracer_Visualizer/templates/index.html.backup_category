@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>System Call Tracer & Visualizer</title>
+
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <div>
+    <p class="eyebrow">OPERATING SYSTEMS MINI PROJECT</p>
+
+    <h1>
+      System Call Tracer & Visualizer
+    </h1>
+
+    <p class="subtitle">
+      Observe how a program interacts with the operating system.
+    </p>
+  </div>
+
+  <div class="status">
+    <span></span>
+    Linux Trace Ready
+  </div>
+
+</header>
+
+
+<main class="container">
+
+
+  <!-- =====================================================
+       PROGRAM CONTROL
+  ====================================================== -->
+
+  <section class="control-card">
+
+    <div>
+
+      <label for="sample">
+        Select sample program
+      </label>
+
+      <select id="sample">
+
+        {% for key, sample in samples.items() %}
+
+        <option value="{{ key }}">
+          {{ sample.name }} — {{ sample.description }}
+        </option>
+
+        {% endfor %}
+
+      </select>
+
+    </div>
+
+    <button id="traceBtn">
+      Trace Program
+    </button>
+
+  </section>
+
+
+  <!-- STATUS MESSAGE -->
+
+  <p id="message" class="message"></p>
+
+
+  <!-- =====================================================
+       MAIN STATISTICS
+  ====================================================== -->
+
+  <section class="cards">
+
+    <div class="stat-card">
+      <span>Total Calls</span>
+      <strong id="totalCalls">—</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Unique Calls</span>
+      <strong id="uniqueCalls">—</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Trace Time</span>
+      <strong id="traceTime">—</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Wall Time</span>
+      <strong id="wallTime">—</strong>
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       CATEGORY STATISTICS
+  ====================================================== -->
+
+  <section class="category-cards">
+
+    <div class="category-card file-card">
+      <span>FILE CALLS</span>
+      <strong id="fileCalls">0</strong>
+    </div>
+
+    <div class="category-card io-card">
+      <span>I/O CALLS</span>
+      <strong id="ioCalls">0</strong>
+    </div>
+
+    <div class="category-card memory-card">
+      <span>MEMORY CALLS</span>
+      <strong id="memoryCalls">0</strong>
+    </div>
+
+    <div class="category-card process-card">
+      <span>PROCESS CALLS</span>
+      <strong id="processCalls">0</strong>
+    </div>
+
+    <div class="category-card other-card">
+      <span>OTHER CALLS</span>
+      <strong id="otherCalls">0</strong>
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       TOP CALLS + CATEGORY CHART
+  ====================================================== -->
+
+  <section class="grid">
+
+    <!-- TOP CALLS -->
+
+    <div class="panel">
+
+      <div class="panel-head">
+
+        <h2>
+          Top System Calls
+        </h2>
+
+        <span id="programName">
+          No trace yet
+        </span>
+
+      </div>
+
+      <div id="bars"
+           class="bars empty">
+
+        Run a trace to see results.
+
+      </div>
+
+    </div>
+
+
+    <!-- CATEGORY CHART -->
+
+    <div class="panel">
+
+      <div class="panel-head">
+
+        <h2>
+          System Call Categories
+        </h2>
+
+      </div>
+
+      <div id="categoryChart"
+           class="category-chart">
+
+        <p class="empty">
+          Run a trace to see categories.
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       USER / KERNEL MODE
+  ====================================================== -->
+
+  <section class="panel">
+
+    <div class="panel-head">
+
+      <h2>
+        User Mode → Kernel Mode Transition
+      </h2>
+
+      <span id="currentSyscall">
+        Waiting for trace
+      </span>
+
+    </div>
+
+
+    <div class="flow">
+
+      <div class="mode user">
+        USER MODE
+      </div>
+
+      <div class="arrow">
+        ↓
+      </div>
+
+      <div class="call">
+        SYSTEM CALL
+      </div>
+
+      <div class="arrow">
+        ↓
+      </div>
+
+      <div class="mode kernel">
+        KERNEL MODE
+      </div>
+
+      <div class="arrow">
+        ↓
+      </div>
+
+      <div class="return">
+        RETURN RESULT
+      </div>
+
+      <div class="arrow">
+        ↓
+      </div>
+
+      <div class="mode user">
+        USER MODE
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       
+SYSTEM CALL TIMELINE
+  ====================================================== -->
+<section class="panel timeline-panel">
+
+  <div class="panel-head">
+
+    <h2>System Call Timeline</h2>
+
+    <span id="eventCount">
+      0 events
+    </span>
+
+  </div>
+
+
+  <!-- Timeline Controls -->
+
+  <div class="timeline-controls">
+
+    <button
+      id="prevEvent"
+      class="timeline-btn"
+      type="button"
+    >
+      ⏮ Previous
+    </button>
+
+
+    <button
+      id="playTimeline"
+      class="timeline-btn primary"
+      type="button"
+    >
+      ▶ Play
+    </button>
+
+
+    <button
+      id="nextEvent"
+      class="timeline-btn"
+      type="button"
+    >
+      Next ⏭
+    </button>
+
+
+    <div class="timeline-position">
+
+      <span id="currentEventNumber">
+        0
+      </span>
+
+      <span>
+        /
+      </span>
+
+      <span id="totalEventNumber">
+        0
+      </span>
+
+    </div>
+
+  </div>
+
+
+  <!-- Progress Bar -->
+
+  <div class="timeline-progress">
+
+    <div
+      id="timelineProgressBar"
+      class="timeline-progress-fill"
+    ></div>
+
+  </div>
+
+
+  <!-- Timeline -->
+
+  <div
+    id="timeline"
+    class="timeline"
+  >
+
+    <div class="empty">
+      Run a trace to see the system-call timeline.
+    </div>
+
+  </div>
+
+</section>
+
+
+
+  <!-- =====================================================
+       PROCESS INFORMATION
+  ====================================================== -->
+
+  <section class="panel">
+
+    <div class="panel-head">
+
+      <h2>
+        Process Information
+      </h2>
+
+    </div>
+
+
+    <div id="processInfo"
+         class="process-info">
+
+      <div class="empty">
+        No process information yet.
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       SYSTEM CALL SUMMARY TABLE
+  ====================================================== -->
+
+  <section class="panel">
+
+    <div class="panel-head">
+
+      <h2>
+        System Call Summary
+      </h2>
+
+      <input
+        id="search"
+        type="search"
+        placeholder="Search syscall..."
+      >
+
+    </div>
+
+
+    <div class="table-wrap">
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>
+              System Call
+            </th>
+
+            <th>
+              Category
+            </th>
+
+            <th>
+              Count
+            </th>
+
+            <th>
+              Percentage
+            </th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody id="tableBody">
+
+          <tr>
+
+            <td colspan="4"
+                class="empty">
+
+              No data yet.
+
+            </td>
+
+          </tr>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       DETAILED EVENTS
+  ====================================================== -->
+
+  <section class="panel">
+
+    <div class="panel-head">
+
+      <h2>
+        Detailed System Call Events
+      </h2>
+
+      <span>
+        First 100 events
+      </span>
+
+    </div>
+
+
+    <div class="table-wrap">
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>
+              PID
+            </th>
+
+            <th>
+              Timestamp
+            </th>
+
+            <th>
+              System Call
+            </th>
+
+            <th>
+              Category
+            </th>
+
+            <th>
+              Duration
+            </th>
+
+            <th>
+              Return
+            </th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody id="eventsBody">
+
+          <tr>
+
+            <td colspan="6"
+                class="empty">
+
+              No events yet.
+
+            </td>
+
+          </tr>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       PROGRAM OUTPUT
+  ====================================================== -->
+
+  <section class="panel">
+
+    <div class="panel-head">
+
+      <h2>
+        Program Output
+      </h2>
+
+    </div>
+
+    <pre id="output">
+No trace yet.
+    </pre>
+
+  </section>
+
+
+  <!-- =====================================================
+       HOW IT WORKS
+  ====================================================== -->
+
+  <section class="panel">
+
+    <div class="panel-head">
+
+      <h2>
+        How System Calls Work
+      </h2>
+
+    </div>
+
+
+    <div class="how-it-works">
+
+      <div>
+        <strong>1. User Program</strong>
+        <p>
+          The application executes in user mode.
+        </p>
+      </div>
+
+      <div class="step-arrow">
+        ↓
+      </div>
+
+      <div>
+        <strong>2. System Call</strong>
+        <p>
+          The application requests a service from the OS.
+        </p>
+      </div>
+
+      <div class="step-arrow">
+        ↓
+      </div>
+
+      <div>
+        <strong>3. Kernel Mode</strong>
+        <p>
+          The operating system performs the requested operation.
+        </p>
+      </div>
+
+      <div class="step-arrow">
+        ↓
+      </div>
+
+      <div>
+        <strong>4. Return</strong>
+        <p>
+          The result is returned to the application.
+        </p>
+      </div>
+
+    </div>
+
+  </section>
+
+
+</main>
+
+
+<footer>
+
+  Educational project •
+  Python + Flask + Linux strace
+
+</footer>
+
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+
+</body>
+
+</html>
+

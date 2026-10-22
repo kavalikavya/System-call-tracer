@@ -1,0 +1,785 @@
+const traceBtn = document.getElementById("traceBtn");
+const sample = document.getElementById("sample");
+const message = document.getElementById("message");
+const search = document.getElementById("search");
+
+let allCalls = [];
+let allEvents = [];
+let animationTimer = null;
+let animationTimeouts = [];
+
+
+/* =========================================================
+   SECURITY / HTML ESCAPING
+========================================================= */
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  }[ch]));
+}
+
+
+/* =========================================================
+   TOP SYSTEM CALL BARS
+========================================================= */
+
+function renderBars(calls) {
+  const box = document.getElementById("bars");
+
+  if (!calls || !calls.length) {
+    box.className = "bars empty";
+    box.textContent = "No calls found.";
+    return;
+  }
+
+  box.className = "bars";
+
+  const max = Math.max(...calls.map(x => x.count));
+
+  box.innerHTML = calls.map(call => `
+    <div class="bar-row">
+      <strong>${escapeHtml(call.name)}</strong>
+
+      <div class="bar-track">
+        <div
+          class="bar-fill"
+          style="width:${(call.count / max) * 100}%">
+        </div>
+      </div>
+
+      <span>${call.count}</span>
+    </div>
+  `).join("");
+}
+
+
+/* =========================================================
+   SYSTEM CALL SUMMARY TABLE
+========================================================= */
+
+function renderTable(calls) {
+  const body = document.getElementById("tableBody");
+
+  if (!calls || !calls.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="4" class="empty">
+          No matching calls.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  body.innerHTML = calls.map(call => `
+    <tr>
+      <td>
+        <strong>${escapeHtml(call.name)}</strong>
+      </td>
+
+      <td>
+        <span class="category-badge">
+          ${escapeHtml(call.category || "Other")}
+        </span>
+      </td>
+
+      <td>${call.count}</td>
+
+      <td>${call.percentage}%</td>
+    </tr>
+  `).join("");
+}
+
+
+/* =========================================================
+   CATEGORY STATISTICS
+========================================================= */
+
+function renderCategoryCards(categories) {
+  const categoryMap = {};
+
+  if (categories) {
+    categories.forEach(category => {
+      categoryMap[category.name] = category.count;
+    });
+  }
+
+  document.getElementById("fileCalls").textContent =
+    categoryMap["File"] || 0;
+
+  document.getElementById("ioCalls").textContent =
+    categoryMap["I/O"] || 0;
+
+  document.getElementById("memoryCalls").textContent =
+    categoryMap["Memory"] || 0;
+
+  document.getElementById("processCalls").textContent =
+    categoryMap["Process"] || 0;
+
+  document.getElementById("otherCalls").textContent =
+    categoryMap["Other"] || 0;
+}
+
+
+/* =========================================================
+   CATEGORY CHART
+========================================================= */
+
+function renderCategoryChart(categories) {
+  const box = document.getElementById("categoryChart");
+
+  if (!categories || !categories.length) {
+    box.innerHTML = `
+      <p class="empty">
+        No category data available.
+      </p>
+    `;
+    return;
+  }
+
+  box.innerHTML = categories.map(category => `
+    <div class="category-row">
+
+      <div class="category-label">
+        <strong>${escapeHtml(category.name)}</strong>
+
+        <span>
+          ${category.count} (${category.percentage}%)
+        </span>
+      </div>
+
+      <div class="category-track">
+
+        <div
+          class="category-fill"
+          style="width:${category.percentage}%">
+        </div>
+
+      </div>
+
+    </div>
+  `).join("");
+}
+
+
+/* =========================================================
+   SYSTEM CALL TIMELINE
+========================================================= */
+
+function renderTimeline(events) {
+  const timeline = document.getElementById("timeline");
+  const eventCount = document.getElementById("eventCount");
+
+  if (!events || !events.length) {
+
+    timeline.innerHTML = `
+      <div class="empty">
+        No timeline data available.
+      </div>
+    `;
+
+    eventCount.textContent = "0 events";
+
+    return;
+  }
+
+  eventCount.textContent = `${events.length} events`;
+
+  const visibleEvents = events.slice(0, 100);
+
+  timeline.innerHTML = visibleEvents.map((event, index) => `
+
+    <div class="timeline-item">
+
+      <div class="timeline-marker">
+        ${index + 1}
+      </div>
+
+      <div class="timeline-content">
+
+        <div class="timeline-top">
+
+          <strong>
+            ${escapeHtml(event.name)}
+          </strong>
+
+          <span class="category-badge">
+            ${escapeHtml(event.category)}
+          </span>
+
+        </div>
+
+        <div class="timeline-meta">
+
+          <span>
+            PID: ${event.pid ?? "—"}
+          </span>
+
+          <span>
+            ${escapeHtml(event.timestamp)}
+          </span>
+
+          <span>
+            ${(event.duration * 1000).toFixed(3)} ms
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  `).join("");
+}
+
+
+/* =========================================================
+   DETAILED SYSTEM CALL EVENTS
+========================================================= */
+
+function renderEvents(events) {
+  const body = document.getElementById("eventsBody");
+
+  if (!events || !events.length) {
+
+    body.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty">
+          No system-call events available.
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+  const visibleEvents = events.slice(0, 100);
+
+  body.innerHTML = visibleEvents.map(event => `
+
+    <tr>
+
+      <td>
+        ${event.pid ?? "—"}
+      </td>
+
+      <td>
+        ${escapeHtml(event.timestamp)}
+      </td>
+
+      <td>
+        <strong>
+          ${escapeHtml(event.name)}
+        </strong>
+      </td>
+
+      <td>
+        <span class="category-badge">
+          ${escapeHtml(event.category)}
+        </span>
+      </td>
+
+      <td>
+        ${(event.duration * 1000).toFixed(3)} ms
+      </td>
+
+      <td>
+        ${escapeHtml(event.return_value)}
+      </td>
+
+    </tr>
+
+  `).join("");
+}
+
+
+/* =========================================================
+   PROCESS INFORMATION
+========================================================= */
+
+function renderProcessInfo(processIds, events) {
+  const box = document.getElementById("processInfo");
+
+  if (!processIds || !processIds.length) {
+
+    box.innerHTML = `
+      <div class="empty">
+        No process information available.
+      </div>
+    `;
+
+    return;
+  }
+
+  box.innerHTML = `
+
+    <div class="process-summary">
+
+      <div class="process-stat">
+        <span>Processes Detected</span>
+        <strong>${processIds.length}</strong>
+      </div>
+
+      <div class="process-stat">
+        <span>Primary PID</span>
+        <strong>${processIds[0]}</strong>
+      </div>
+
+      <div class="process-stat">
+        <span>Events Captured</span>
+        <strong>${events ? events.length : 0}</strong>
+      </div>
+
+    </div>
+
+    <div class="process-list">
+
+      ${processIds.map((pid, index) => `
+
+        <div class="process-node">
+
+          <span class="process-icon">
+            ${index === 0 ? "●" : "↳"}
+          </span>
+
+          <div>
+
+            <strong>
+              PID ${pid}
+            </strong>
+
+            <small>
+              ${index === 0 ? "Main Process" : "Child Process"}
+            </small>
+
+          </div>
+
+        </div>
+
+      `).join("")}
+
+    </div>
+  `;
+}
+
+
+/* =========================================================
+   CURRENT SYSTEM CALL TEXT
+========================================================= */
+
+function showCurrentSyscall(event) {
+  const element = document.getElementById("currentSyscall");
+
+  if (!element) {
+    return;
+  }
+
+  if (!event) {
+    element.textContent = "Waiting for trace";
+    return;
+  }
+
+  element.textContent =
+    `${event.name}() • ${event.category} • Return: ${event.return_value}`;
+}
+
+
+/* =========================================================
+   MODE TRANSITION VISUALIZATION
+========================================================= */
+
+function resetModeStyles() {
+  const flow = document.querySelector(".flow");
+
+  if (!flow) {
+    return;
+  }
+
+  const elements = flow.children;
+
+  Array.from(elements).forEach(element => {
+
+    element.style.transform = "";
+    element.style.boxShadow = "";
+    element.style.transition = "all 0.3s ease";
+    element.style.opacity = "1";
+
+  });
+}
+
+
+/* Highlight one stage of the mode transition */
+
+function highlightStage(index) {
+  const flow = document.querySelector(".flow");
+
+  if (!flow) {
+    return;
+  }
+
+  const elements = flow.children;
+
+  resetModeStyles();
+
+  const target = elements[index];
+
+  if (!target) {
+    return;
+  }
+
+  target.style.transform = "scale(1.03)";
+  target.style.boxShadow =
+    "0 0 0 4px rgba(37, 99, 235, 0.15), 0 8px 20px rgba(37, 99, 235, 0.15)";
+}
+
+
+/* =========================================================
+   ANIMATE USER → KERNEL → USER
+========================================================= */
+
+function animateModeTransition(event) {
+
+  const flow = document.querySelector(".flow");
+
+  if (!flow || !event) {
+    return;
+  }
+
+  const elements = flow.children;
+
+  /*
+    Expected structure:
+
+    0 = USER MODE
+    1 = arrow
+    2 = SYSTEM CALL
+    3 = arrow
+    4 = KERNEL MODE
+    5 = arrow
+    6 = RETURN RESULT
+    7 = arrow
+    8 = USER MODE
+  */
+
+  resetModeStyles();
+
+  if (elements[0]) {
+    elements[0].style.transform = "scale(1.03)";
+    elements[0].style.boxShadow =
+      "0 0 0 4px rgba(14, 165, 233, 0.18)";
+  }
+
+  animationTimeouts.push(
+
+    setTimeout(() => {
+
+      resetModeStyles();
+
+      if (elements[2]) {
+
+        elements[2].style.transform = "scale(1.03)";
+
+        elements[2].style.boxShadow =
+          "0 0 0 4px rgba(37, 99, 235, 0.20), 0 8px 20px rgba(37, 99, 235, 0.12)";
+
+        elements[2].textContent =
+          `${event.name.toUpperCase()}()`;
+
+      }
+
+    }, 400)
+
+  );
+
+
+  animationTimeouts.push(
+
+    setTimeout(() => {
+
+      resetModeStyles();
+
+      if (elements[4]) {
+
+        elements[4].style.transform = "scale(1.03)";
+
+        elements[4].style.boxShadow =
+          "0 0 0 4px rgba(239, 68, 68, 0.20), 0 8px 20px rgba(239, 68, 68, 0.12)";
+
+      }
+
+    }, 900)
+
+  );
+
+
+  animationTimeouts.push(
+
+    setTimeout(() => {
+
+      resetModeStyles();
+
+      if (elements[6]) {
+
+        elements[6].style.transform = "scale(1.03)";
+
+        elements[6].style.boxShadow =
+          "0 0 0 4px rgba(34, 197, 94, 0.20), 0 8px 20px rgba(34, 197, 94, 0.12)";
+
+        elements[6].textContent =
+          `RETURN: ${event.return_value}`;
+
+      }
+
+    }, 1400)
+
+  );
+
+
+  animationTimeouts.push(
+
+    setTimeout(() => {
+
+      resetModeStyles();
+
+      if (elements[8]) {
+
+        elements[8].style.transform = "scale(1.03)";
+
+        elements[8].style.boxShadow =
+          "0 0 0 4px rgba(14, 165, 233, 0.18)";
+
+      }
+
+    }, 1900)
+
+  );
+
+}
+
+
+/* =========================================================
+   START CONTINUOUS TRACE ANIMATION
+========================================================= */
+
+function startTraceAnimation(events) {
+
+  stopTraceAnimation();
+
+  if (!events || !events.length) {
+    return;
+  }
+
+  /*
+    We animate the first 20 system calls repeatedly.
+    This keeps the UI smooth instead of trying to animate
+    hundreds of events at once.
+  */
+
+  const animationEvents = events.slice(0, 20);
+
+  let index = 0;
+
+  function playNext() {
+
+    if (!animationEvents.length) {
+      return;
+    }
+
+    const event = animationEvents[index];
+
+    showCurrentSyscall(event);
+
+    animateModeTransition(event);
+
+    index = (index + 1) % animationEvents.length;
+
+    animationTimer = setTimeout(playNext, 2400);
+  }
+
+  playNext();
+}
+
+
+/* =========================================================
+   STOP TRACE ANIMATION
+========================================================= */
+
+function stopTraceAnimation() {
+
+  if (animationTimer) {
+
+    clearTimeout(animationTimer);
+
+    animationTimer = null;
+
+  }
+
+  animationTimeouts.forEach(timeout => {
+    clearTimeout(timeout);
+  });
+
+  animationTimeouts = [];
+
+  resetModeStyles();
+}
+
+
+/* =========================================================
+   TRACE PROGRAM
+========================================================= */
+
+traceBtn.addEventListener("click", async () => {
+
+  stopTraceAnimation();
+
+  traceBtn.disabled = true;
+  traceBtn.textContent = "Tracing...";
+
+  message.textContent =
+    "Running the selected program and collecting system calls...";
+
+  try {
+
+    const response = await fetch("/api/trace", {
+
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify({
+        sample: sample.value
+      })
+
+    });
+
+
+    const data = await response.json();
+
+
+    if (!data.ok) {
+      throw new Error(data.error);
+    }
+
+
+    const r = data.result;
+
+
+    /* =========================
+       MAIN STATISTICS
+    ========================= */
+
+    document.getElementById("totalCalls").textContent =
+      r.total_calls;
+
+    document.getElementById("uniqueCalls").textContent =
+      r.unique_calls;
+
+    document.getElementById("traceTime").textContent =
+      `${r.trace_time}s`;
+
+    document.getElementById("wallTime").textContent =
+      `${r.wall_time}s`;
+
+
+    /* =========================
+       PROGRAM INFORMATION
+    ========================= */
+
+    document.getElementById("programName").textContent =
+      r.sample;
+
+    document.getElementById("output").textContent =
+      r.program_output || "(no stdout)";
+
+
+    /* =========================
+       STORE DATA
+    ========================= */
+
+    allCalls = r.calls || [];
+
+    allEvents = r.events || [];
+
+
+    /* =========================
+       RENDER ALL SECTIONS
+    ========================= */
+
+    renderBars(r.top_calls || []);
+
+    renderTable(allCalls);
+
+    renderCategoryCards(r.categories || []);
+
+    renderCategoryChart(r.categories || []);
+
+    renderTimeline(allEvents);
+
+    renderEvents(allEvents);
+
+    renderProcessInfo(
+      r.process_ids || [],
+      allEvents
+    );
+
+
+    /* =========================
+       START DYNAMIC VISUALIZATION
+    ========================= */
+
+    showCurrentSyscall(allEvents[0]);
+
+    startTraceAnimation(allEvents);
+
+
+    message.textContent =
+      `Trace completed successfully for ${r.sample}.`;
+
+  }
+
+  catch (error) {
+
+    console.error(error);
+
+    message.textContent =
+      `Error: ${error.message}`;
+
+  }
+
+  finally {
+
+    traceBtn.disabled = false;
+
+    traceBtn.textContent =
+      "Trace Program";
+
+  }
+
+});
+
+
+/* =========================================================
+   SEARCH SYSTEM CALLS
+========================================================= */
+
+search.addEventListener("input", () => {
+
+  const q =
+    search.value.trim().toLowerCase();
+
+  const filteredCalls =
+    allCalls.filter(call =>
+      call.name.toLowerCase().includes(q)
+    );
+
+  renderTable(filteredCalls);
+
+});
+
